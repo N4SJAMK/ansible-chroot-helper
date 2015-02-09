@@ -33,6 +33,11 @@ options:
         default: null
 '''
 
+MEMORY_FILE = ''
+
+def is_file_present(path, root = '/'):
+    pass
+
 def get_arguments():
     pass
 
@@ -44,8 +49,17 @@ def get_copy_to_jail_func(root_folder):
 def get_library_dependencies(command):
     pass
 
-def remove():
+def remove_file():
     pass
+
+def get_old_files(memory_file):
+    pass
+
+def save_managed_files(files, memory_file):
+    pass
+
+def diff(a, b):
+    return [x for x in a if x not in b]
 
 def main():
     arguments = {
@@ -61,11 +75,29 @@ def main():
     module = AnsibleModule(argument_spec = arguments)
     args = get_arguments(module)
 
-    copy_func = get_copy_to_jail_func(args['root_folder'])
+    if args['state'] == 'present':
+        # Get copy fuction
+        copy_func = get_copy_to_jail_func(args['root_folder'])
 
-    libs = sum(map(get_library_dependencies, args['commands']), [])
-    map(copy_func, libs + args['commands'])
-    map(copy_func, args['other'])
+        # Get all library dependencies that all the commands have
+        libs = sum(map(get_library_dependencies, args['commands']), [])
+
+        managed_files = libs + args['commands'] + args['other']
+
+        old_files = get_old_files(MEMORY_FILE)
+
+        reduntant_files = diff(managed_files, old_files)
+
+        # Filter out the files that have already been copied
+        files = filter(is_file_present, managed_files)
+
+        map(copy_func, files)
+        map(remove_file, reduntant_files)
+
+        save_managed_files(managed_files, MEMORY_FILE)
+
+    else:
+        pass
 
 from ansible.module_utils.basic import *
 main()
