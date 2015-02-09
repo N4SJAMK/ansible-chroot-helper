@@ -35,6 +35,8 @@ options:
 import os
 import os.path
 import shutil
+import subprocess
+import re
 
 MEMORY_FILE = ''
 
@@ -52,7 +54,13 @@ def get_copy_to_jail_func(root_folder):
     return _copy_to_jail
 
 def get_library_dependencies(command):
-    pass
+    ldd_out = subprocess.check_output(['ldd', fileName])
+    deps = []
+    for lines in ldd_out.splitlines():
+        match = re.match(r'\t(.*) => (.*) \(0x', line)
+        if match:
+            deps.append(match)
+    return deps
 
 def remove_file(path):
     os.remove(path)
