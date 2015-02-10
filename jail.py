@@ -66,10 +66,15 @@ def remove_file(path):
     os.remove(path)
 
 def get_old_files(memory_file):
-    pass
+    if not os.path.isfile(memory_file):
+        return []
+    with open(memory_file, 'r') as f:
+        files = f.readlines()
+    return files
 
 def save_managed_files(files, memory_file):
-    pass
+    with open(memory_file, 'w') as f:
+        f.writelines(files)
 
 def diff(a, b):
     return [x for x in a if x not in b]
