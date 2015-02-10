@@ -132,7 +132,10 @@ def main():
         save_managed_files(managed_files, MEMORY_FILE)
 
     else:
-        pass
+        if os.path.isdir(args['jail_folder']):
+            shutil.rmtree(args['jail_folder'])
+        if os.path.isfile(MEMORY_FILE):
+            remove_file(MEMORY_FILE)
 
     module.exit_json(changed = True, msg = "SUCCESS")
 
