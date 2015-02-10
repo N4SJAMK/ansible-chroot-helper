@@ -67,9 +67,10 @@ def get_library_dependencies(command):
     ldd_out = subprocess.check_output(['ldd', command])
     deps = []
     for line in ldd_out.splitlines():
-        match = re.match(r'\t.* => (.*) \(0x', line)
+        match = re.match(r'\t.* => (\S*) \(0x|\t(\/\S*) \(0x', line)
         if match:
-            deps.append(match.group(1))
+            if match.group(1) or match.group(2):
+                deps.append(match.group(1) or match.group(2))
     return deps
 
 def remove_file(file_path):
