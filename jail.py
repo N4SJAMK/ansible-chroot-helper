@@ -54,13 +54,13 @@ def get_arguments(module):
     args['other'] = module.params['other'] or []
     return args
 
-def get_copy_to_jail_func(jail_folder):
+def copy_to_jail(jail_folder):
     def _copy_to_jail(file_path):
-        full_file_path = os.path.join(jail_folder, file_path[1:])
-        dir_path = os.path.dirname(full_file_path)
-        if not os.path.exists(dir_path):
-            os.makedirs(dir_path)
-        shutil.copy2(file_path, full_file_path)
+        jail_path = resolve_jail_path(jail_folder)(file_path)
+        jail_dir_path = os.path.dirname(jail_path)
+        if not os.path.exists(jail_dir_path):
+            os.makedirs(jail_dir_path)
+        shutil.copy2(file_path, jail_path)
     return _copy_to_jail
 
 def get_library_dependencies(command):
@@ -72,8 +72,8 @@ def get_library_dependencies(command):
             deps.append(match.group(1))
     return deps
 
-def remove_file(path):
-    os.remove(path)
+def remove_file(file_path):
+    os.remove(file_path)
 
 def get_old_files(memory_file):
     if not os.path.isfile(memory_file):
@@ -88,6 +88,11 @@ def save_managed_files(files, memory_file):
 
 def diff(a, b):
     return [x for x in a if x not in b]
+
+def resolve_jail_path(jail_folder):
+    def _resolve_jail_path(file_path):
+        return os.path.join(jail_folder, file_path[1:])
+    return _resolve_jail_path
 
 def main():
     arguments = {
@@ -105,7 +110,7 @@ def main():
 
     if args['state'] == 'present':
         # Get copy fuction
-        copy_func = get_copy_to_jail_func(args['jail_folder'])
+        _copy_to_jail = copy_to_jail(args['jail_folder'])
 
         # Get all library dependencies that all the commands have
         libs = sum(map(get_library_dependencies, args['commands']), [])
@@ -114,12 +119,14 @@ def main():
 
         old_files = get_old_files(MEMORY_FILE)
 
-        reduntant_files = diff(old_files, managed_files)
+        _resolve_jail_path = resolve_jail_path(args['jail_folder'])
+
+        reduntant_files = map(_resolve_jail_path, diff(old_files, managed_files))
 
         # Filter out the files that have already been copied
         files = itertools.ifilter(is_file_present(args['jail_folder']), managed_files)
 
-        map(copy_func, files)
+        map(_copy_to_jail, files)
         map(remove_file, reduntant_files)
 
         save_managed_files(managed_files, MEMORY_FILE)
