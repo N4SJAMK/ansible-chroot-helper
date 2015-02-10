@@ -41,10 +41,19 @@ import itertools
 
 MEMORY_FILE = '/var/ansible-jail.mem'
 
-def is_file_present(root = '/'):
-    def _is_file_present(path):
+def is_file(root = '/'):
+    def _is_file(path):
+        if root != '/':
+            path = resolve_jail_path(root)(path)
         return os.path.isfile(path)
-    return _is_file_present
+    return _is_file
+
+def is_folder(root = '/'):
+    def _is_folder(path):
+        if root != '/':
+            path = resolve_jail_path(root)(path)
+        return os.path.isdir(path)
+    return _is_folder
 
 def get_arguments(module):
     args = {}
@@ -54,14 +63,25 @@ def get_arguments(module):
     args['other'] = module.params['other'] or []
     return args
 
-def copy_to_jail(jail_folder):
-    def _copy_to_jail(file_path):
-        jail_path = resolve_jail_path(jail_folder)(file_path)
+def copy_file_to_jail(jail_folder):
+    def _copy_to_jail(path):
+        jail_path = resolve_jail_path(jail_folder)(path)
         jail_dir_path = os.path.dirname(jail_path)
         if not os.path.exists(jail_dir_path):
             os.makedirs(jail_dir_path)
-        shutil.copy2(file_path, jail_path)
+        shutil.copy2(path, jail_path)
+
     return _copy_to_jail
+
+def copy_folder_to_jail(jail_folder):
+    def _copy_folder_to_jail(path):
+        jail_path = resolve_jail_path(jail_folder)(path)
+        jail_dir_path = os.path.dirname(jail_path)
+        if not os.path.exists(jail_dir_path):
+            os.makedirs(jail_dir_path)
+        shutil.copytree(path, jail_path)
+
+    return _copy_folder_to_jail
 
 def get_library_dependencies(command):
     ldd_out = subprocess.check_output(['ldd', command])
@@ -75,6 +95,9 @@ def get_library_dependencies(command):
 
 def remove_file(file_path):
     os.remove(file_path)
+
+def remove_folder(path):
+    shutil.rmtree(path)
 
 def get_old_files(memory_file):
     if not os.path.isfile(memory_file):
@@ -110,13 +133,12 @@ def main():
     args = get_arguments(module)
 
     if args['state'] == 'present':
-        # Get copy fuction
-        _copy_to_jail = copy_to_jail(args['jail_folder'])
-
         # Get all library dependencies that all the commands have
         libs = sum(map(get_library_dependencies, args['commands']), [])
 
         managed_files = libs + args['commands'] + args['other']
+
+        #module.exit_json(msg = managed_files)
 
         old_files = get_old_files(MEMORY_FILE)
 
@@ -124,11 +146,14 @@ def main():
 
         reduntant_files = map(_resolve_jail_path, diff(old_files, managed_files))
 
-        # Filter out the files that have already been copied
-        files = itertools.ifilter(is_file_present(args['jail_folder']), managed_files)
+        # Filter out the files and folders that have already been copied
+        files = itertools.ifilterfalse(is_file(args['jail_folder']), itertools.ifilter(is_file('/'), managed_files))
+        folders = itertools.ifilterfalse(is_folder(args['jail_folder']), itertools.ifilter(is_folder('/'), managed_files))
 
-        map(_copy_to_jail, files)
-        map(remove_file, reduntant_files)
+        map(copy_file_to_jail(args['jail_folder']), files)
+        map(copy_folder_to_jail(args['jail_folder']), folders)
+        map(remove_file, itertools.ifilter(is_file(), reduntant_files))
+        map(remove_folder, itertools.ifilter(is_folder(), reduntant_files))
 
         save_managed_files(managed_files, MEMORY_FILE)
 
