@@ -49,8 +49,12 @@ def get_arguments():
     pass
 
 def get_copy_to_jail_func(root_folder):
-    def _copy_to_jail(path):
-        shutil.copy2(path, os.path.join(root_folder, path))
+    def _copy_to_jail(file_path):
+        full_file_path = os.path.join(root_folder, file_path)
+        dir_path = os.path.dirname(full_file_path)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        shutil.copy2(path, full_file_path)
     return _copy_to_jail
 
 def get_library_dependencies(command):
