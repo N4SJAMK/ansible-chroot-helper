@@ -45,8 +45,13 @@ def is_file_present(root = '/'):
         return os.path.isfile(path)
     return _is_file_present
 
-def get_arguments():
-    pass
+def get_arguments(module):
+    args = {}
+    args['state'] = module.params['state']
+    args['root_folder'] = module.params['root_folder']
+    args['commands'] = module.params['commands']
+    args['other'] = module.params['other']
+    return args
 
 def get_copy_to_jail_func(root_folder):
     def _copy_to_jail(file_path):
