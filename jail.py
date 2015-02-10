@@ -49,8 +49,8 @@ def get_arguments(module):
     args = {}
     args['state'] = module.params['state']
     args['root_folder'] = module.params['root_folder']
-    args['commands'] = module.params['commands']
-    args['other'] = module.params['other']
+    args['commands'] = module.params['commands'] or []
+    args['other'] = module.params['other'] or []
     return args
 
 def get_copy_to_jail_func(root_folder):
@@ -63,9 +63,9 @@ def get_copy_to_jail_func(root_folder):
     return _copy_to_jail
 
 def get_library_dependencies(command):
-    ldd_out = subprocess.check_output(['ldd', fileName])
+    ldd_out = subprocess.check_output(['ldd', command])
     deps = []
-    for lines in ldd_out.splitlines():
+    for line in ldd_out.splitlines():
         match = re.match(r'\t(.*) => (.*) \(0x', line)
         if match:
             deps.append(match)
@@ -92,7 +92,7 @@ def main():
     arguments = {
         'state': {
             'required'  : False,
-            'choises'   : ['present', 'absent']
+            'choises'   : ['present', 'absent'],
             'default'   : 'present',
         },
         'root_folder'   : { 'required': True, 'default': None },
@@ -101,6 +101,8 @@ def main():
     }
     module = AnsibleModule(argument_spec = arguments)
     args = get_arguments(module)
+
+    #module.exit_json(changed = False, msg = "Terppa")
 
     if args['state'] == 'present':
         # Get copy fuction
