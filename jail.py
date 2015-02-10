@@ -16,7 +16,7 @@ options:
             "present", "absent"
         ]
         aliases: []
-    root_folder:
+    jail_folder:
         description:
             - chroot folder
         required: true
@@ -37,6 +37,7 @@ import os.path
 import shutil
 import subprocess
 import re
+import itertools
 
 MEMORY_FILE = ''
 
@@ -48,27 +49,27 @@ def is_file_present(root = '/'):
 def get_arguments(module):
     args = {}
     args['state'] = module.params['state']
-    args['root_folder'] = module.params['root_folder']
+    args['jail_folder'] = module.params['jail_folder']
     args['commands'] = module.params['commands'] or []
     args['other'] = module.params['other'] or []
     return args
 
-def get_copy_to_jail_func(root_folder):
+def get_copy_to_jail_func(jail_folder):
     def _copy_to_jail(file_path):
-        full_file_path = os.path.join(root_folder, file_path)
+        full_file_path = os.path.join(jail_folder, file_path[1:])
         dir_path = os.path.dirname(full_file_path)
         if not os.path.exists(dir_path):
             os.makedirs(dir_path)
-        shutil.copy2(path, full_file_path)
+        shutil.copy2(file_path, full_file_path)
     return _copy_to_jail
 
 def get_library_dependencies(command):
     ldd_out = subprocess.check_output(['ldd', command])
     deps = []
     for line in ldd_out.splitlines():
-        match = re.match(r'\t(.*) => (.*) \(0x', line)
+        match = re.match(r'\t.* => (.*) \(0x', line)
         if match:
-            deps.append(match)
+            deps.append(match.group(1))
     return deps
 
 def remove_file(path):
@@ -95,18 +96,16 @@ def main():
             'choises'   : ['present', 'absent'],
             'default'   : 'present',
         },
-        'root_folder'   : { 'required': True, 'default': None },
+        'jail_folder'   : { 'required': True, 'default': None },
         'commands'      : { 'default': None },
         'other'         : { 'default': None },
     }
     module = AnsibleModule(argument_spec = arguments)
     args = get_arguments(module)
 
-    #module.exit_json(changed = False, msg = "Terppa")
-
     if args['state'] == 'present':
         # Get copy fuction
-        copy_func = get_copy_to_jail_func(args['root_folder'])
+        copy_func = get_copy_to_jail_func(args['jail_folder'])
 
         # Get all library dependencies that all the commands have
         libs = sum(map(get_library_dependencies, args['commands']), [])
@@ -118,7 +117,7 @@ def main():
         reduntant_files = diff(old_files, managed_files)
 
         # Filter out the files that have already been copied
-        files = filter(is_file_present(args['root_folder']), managed_files)
+        files = itertools.ifilter(is_file_present(args['jail_folder']), managed_files)
 
         map(copy_func, files)
         map(remove_file, reduntant_files)

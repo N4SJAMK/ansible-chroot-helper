@@ -5,7 +5,7 @@
   tasks:
     - name: what is a jail
       jail:
-        root_folder: /var/jail
+        jail_folder: /var/jail
         commands:
           - /bin/bash
           - /bin/ls
