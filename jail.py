@@ -39,7 +39,7 @@ import subprocess
 import re
 import itertools
 
-MEMORY_FILE = ''
+MEMORY_FILE = '/var/ansible-jail.mem'
 
 def is_file_present(root = '/'):
     def _is_file_present(path):
@@ -79,12 +79,12 @@ def get_old_files(memory_file):
     if not os.path.isfile(memory_file):
         return []
     with open(memory_file, 'r') as f:
-        files = f.readlines()
+        files = f.read().splitlines()
     return files
 
 def save_managed_files(files, memory_file):
     with open(memory_file, 'w') as f:
-        f.writelines(files)
+        f.writelines(["{0}\n".format(x) for x in files if x != ''])
 
 def diff(a, b):
     return [x for x in a if x not in b]
@@ -126,6 +126,8 @@ def main():
 
     else:
         pass
+
+    module.exit_json(changed = True, msg = "SUCCESS")
 
 from ansible.module_utils.basic import *
 main()
