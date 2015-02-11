@@ -75,8 +75,18 @@ def get_mangaged_objects(memory_file):
 
 def get_jail_tree(jail_dir):
     dir_tree = {}
-    #walker = def walker(node, object_path):
-    pass
+    # From http://code.activestate.com/recipes/577879-create-a-nested-dictionary-from-oswalk/
+    # -------------------------------------------------------------------------
+    dir = {}
+    rootdir = rootdir.rstrip(os.sep)
+    start = rootdir.rfind(os.sep) + 1
+    for path, dirs, files in os.walk(rootdir):
+        folders = path[start:].split(os.sep)
+        subdir = dict.fromkeys(files)
+        parent = reduce(dict.get, folders[:-1], dir)
+        parent[folders[-1]] = subdir
+    return dir
+    # -------------------------------------------------------------------------
 
 def destroy_jail(jail_dir, memory_file):
     msg = {}
@@ -104,6 +114,7 @@ def save_managed_files(memory_file, files):
 
 # Pure functions
 # -----------------------------------------------------------------------------
+
 def create_actions(jail_dir, files, dirs, managed_objects, jail_tree, memory_file):
 
     reduntant_objects = diff(files + dirs, managed_objects)
@@ -119,8 +130,8 @@ def create_actions(jail_dir, files, dirs, managed_objects, jail_tree, memory_fil
 
     parent_dirs = map(lambda x: x.split("/")[:-1], missing_files + missing_folders)
     missing_parent_dirs = itertools.ifilterfalse(is_dir, parent_dirs)
-    path_actions = map(create_make_path_action(jail_dir), missing_parent_dirs)
 
+    path_actions = map(create_make_path_action(jail_dir), missing_parent_dirs)
     file_actions = map(create_cp_file_action(jail_dir), missing_files)
     dir_actions = map(create_cp_dir_action(jail_dir), missing_dirs)
 
@@ -135,14 +146,16 @@ def is_file(jail_tree):
 
 def is_dir(jail_tree):
     def _is_dir(dir_path):
-        pass
+        def walker(tree, dir_path):
+            pass
+        return walker(jail_tree, dir_path.split("/"))
     return _is_dir
 
 def diff(a, b):
     return [x for x in a if x not in b]
 
 def resolve_jail_path(jail_dir, file_path):
-    return os.path.join(jail_dir, file_path[1:]
+    return os.path.join(jail_dir, file_path[1:])
 
 def create_rm_file_action(jail_dir):
     def _create_rm_file_action(f):
@@ -210,10 +223,10 @@ def main():
         files = libs + args['commands'] + args['other_files']
         dirs = args['dirs']
         managed_objects = get_managed_objects(MEMORY_FILE)
-        jail_tree = get_jail_struct(args['jail_dir'])
+        jail_tree = get_jail_tree(args['jail_dir'])
 
         # Pure functional
-        actions = create_actions(args['jail_dir'], files, dirs, managed_objects, jail_tree)
+        actions = create_actions(args['jail_dir'], files, dirs, managed_objects, jail_tree, MEMORY_FILE)
 
         # Take actions
         msg = reduce(create_msg, map(take_action, actions), {changed = False})
