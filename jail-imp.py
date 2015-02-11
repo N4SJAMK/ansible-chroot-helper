@@ -147,7 +147,13 @@ def is_file(jail_tree):
 def is_dir(jail_tree):
     def _is_dir(dir_path):
         def walker(tree, dir_path):
-            pass
+            node = tree.get(dir_path[0])
+            if node == None:
+                return False
+            if len(dir_path) == 1:
+                return True
+            else:
+                return walker(node, dir_path[1:])
         return walker(jail_tree, dir_path.split("/"))
     return _is_dir
 
