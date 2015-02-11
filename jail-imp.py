@@ -77,7 +77,6 @@ def get_jail_tree(jail_dir):
     dir_tree = {}
     #walker = def walker(node, object_path):
     pass
-        
 
 def destroy_jail(jail_dir, memory_file):
     msg = {}
@@ -99,21 +98,32 @@ def take_action(action):
 def create_msg(msgs, msg):
     return msgs + msg
 
+def save_managed_files(memory_file, files):
+    with open(memory_file, 'w') as f:
+        f.writelines(["{0}\n".format(x) for x in files if x != ''])
+
 # Pure functions
-def create_actions(jail_dir, files, dirs, managed_objects, jail_stuct):
+def create_actions(jail_dir, files, dirs, managed_objects, jail_tree, memory_file):
 
     reduntant_files = diff(files + dirs, managed_objects)
-    rm_actions = map(create_rm_action, reduntant_files)
+    rm_actions = map(create_rm_action(jail_dir), reduntant_files)
 
+    missing_files = itertools.ifilterfalse(is_file(jail_tree), files)
+    missing_dirs = itertools.ifilterfalse(is_dir(jail_tree), dirs)
 
-    return rm_actions
+    file_actions = map(create_cp_file_action(jail_dir), missing_files)
+    dir_actions = map(create_cp_dir_action(jail_dir), missing_dirs)
 
-def is_file(jail_struct):
+    memory_file_action = create_memory_file_action(memory_file, missing_files + missing_dirs)
+
+    return rm_actions + file_actions + dir_actions + memory_file_action
+
+def is_file(jail_tree):
     def _is_file(file_path):
         pass
     return _is_file
 
-def is_dir(jail_struct):
+def is_dir(jail_tree):
     def _is_dir(dir_path):
         pass
     return _is_dir
@@ -121,10 +131,36 @@ def is_dir(jail_struct):
 def diff(a, b):
     return [x for x in a if x not in b]
 
-def create_rm_action(f):
-    def _rm_action():
-        pass
-    return (_rm_action, "rm {0}".format(f))
+def resolve_jail_path(jail_dir, file_path):
+    return os.path.join(jail_dir, file_path[1:]
+
+def create_rm_action(jail_dir):
+    def _create_rm_action(f):
+        def _rm_action():
+            os.remove(resolve_jail_path(jail_dir, f)
+        return (_rm_action, "rm {0}".format(f))
+    return _create_rm_action
+
+def create_cp_file_action(jail_dir):
+    def _create_cp_file_action(f):
+        file_jail_path = resolve_jail_path(jail_dir, f)
+        def _cp_file_action():
+            shutil.copy2(f, file_jail_path)
+        return (_cp_file_action, "cp {0} {1}".format(f, file_jail_path))
+    return _create_cp_file_action
+
+def create_cp_dir_action(jail_dir):
+    def _create_cp_dir_action(d):
+        dir_jail_path = resolve_jail_path(jail_dir, d)
+        def _cp_dir_action():
+            pass
+        return (_cp_dir_action, "cp {0} {1}".format(d, dir_jail_path))
+    return _create_cp_dir_action
+
+def create_memory_file_action(memory_file, files):
+    def _memory_file_action():
+        save_managed_files(memory_file, files)
+    return _memory_file_action
 
 def main():
     arguments = {
@@ -148,10 +184,10 @@ def main():
         files = libs + args['commands'] + args['other_files']
         dirs = args['dirs']
         managed_objects = get_managed_objects(MEMORY_FILE)
-        jail_struct = get_jail_struct(args['jail_dir'])
+        jail_tree = get_jail_struct(args['jail_dir'])
 
         # Pure functional
-        actions = create_actions(args['jail_dir'], files, dirs, managed_objects, jail_struct)
+        actions = create_actions(args['jail_dir'], files, dirs, managed_objects, jail_tree)
 
         # Take actions
         msg = reduce(create_msg, map(take_action, actions), {changed = False})
