@@ -50,7 +50,7 @@ MEMORY_FILE = '/var/ansible-jail.mem'
 def get_arguments(module):
     args = {}
     args['state'] = module.params['state']
-    args['jail_folder'] = module.params['jail_folder']
+    args['jail_dir'] = module.params['jail_dir']
     args['commands'] = module.params['commands'] or []
     args['other_files'] = module.params['other_files'] or []
     args['dirs'] = module.params['dirs'] or []
@@ -66,7 +66,7 @@ def get_library_dependencies(command):
                 deps.append(match.group(1) or match.group(2))
     return deps
 
-def get_mangaged_objects(memory_file):
+def get_managed_objects(memory_file):
     if not os.path.isfile(memory_file):
         return []
     with open(memory_file, 'r') as f:
@@ -78,9 +78,9 @@ def get_jail_tree(jail_dir):
     # From http://code.activestate.com/recipes/577879-create-a-nested-dictionary-from-oswalk/
     # -------------------------------------------------------------------------
     dir = {}
-    rootdir = rootdir.rstrip(os.sep)
-    start = rootdir.rfind(os.sep) + 1
-    for path, dirs, files in os.walk(rootdir):
+    jail_dir = jail_dir.rstrip(os.sep)
+    start = jail_dir.rfind(os.sep) + 1
+    for path, dirs, files in os.walk(jail_dir):
         folders = path[start:].split(os.sep)
         subdir = dict.fromkeys(files)
         parent = reduce(dict.get, folders[:-1], dir)
@@ -106,15 +106,17 @@ def take_actions(actions):
     def _take_action(action):
         action[0]()
         return action[1]
-    return = reduce(create_msg, map(_take_action, actions), {changed = False})
+    return reduce(create_msg, map(_take_action, actions), {'changed': False, 'msg': []})
 
 def fake_actions(actions):
     def _fake_action(action):
         return action[1]
-    return = reduce(create_msg, map(_take_action, actions), {changed = False})
+    return reduce(create_msg, map(_fake_action, actions), {'changed': False, 'msg': []})
 
 def create_msg(msgs, msg):
-    return msgs + msg
+    msgs['changed'] = True
+    msgs['msg'].append(msg)
+    return msgs
 
 def save_managed_files(memory_file, files):
     with open(memory_file, 'w') as f:
@@ -133,17 +135,17 @@ def create_actions(jail_dir, files, dirs, managed_objects, jail_tree, memory_fil
     rm_dir_actions = map(create_rm_dir_action(jail_dir), reduntant_dirs)
     rm_actions = rm_file_actions + rm_dir_actions
 
-    missing_files = itertools.ifilterfalse(is_file(jail_tree), files)
-    missing_dirs = itertools.ifilterfalse(is_dir(jail_tree), dirs)
+    missing_files = [x for x in itertools.ifilterfalse(is_file(jail_tree), files)]
+    missing_dirs = [x for x in itertools.ifilterfalse(is_dir(jail_tree), dirs)]
 
-    parent_dirs = map(lambda x: x.split("/")[:-1], missing_files + missing_folders)
+    parent_dirs = map(lambda x: x.split("/")[:-1], missing_files + missing_dirs)
     missing_parent_dirs = itertools.ifilterfalse(is_dir, parent_dirs)
 
     path_actions = map(create_make_path_action(jail_dir), missing_parent_dirs)
     file_actions = map(create_cp_file_action(jail_dir), missing_files)
     dir_actions = map(create_cp_dir_action(jail_dir), missing_dirs)
 
-    memory_file_action = create_memory_file_action(memory_file, missing_files + missing_dirs)
+    memory_file_action = [create_memory_file_action(memory_file, missing_files + missing_dirs)]
 
     return rm_actions + path_actions + file_actions + dir_actions + memory_file_action
 
@@ -182,16 +184,16 @@ def resolve_jail_path(jail_dir, file_path):
 def create_rm_file_action(jail_dir):
     def _create_rm_file_action(f):
         def _rm_file_action():
-            os.remove(resolve_jail_path(jail_dir, f)
-        return (_rm_action, "rm {0}".format(f))
-    return _create_rm_action
+            os.remove(resolve_jail_path(jail_dir, f))
+        return (_rm_file_action, "rm {0}".format(f))
+    return _create_rm_file_action
 
 def create_rm_dir_action(jail_dir):
     def _create_rm_dir_action(d):
         def _rm_dir_action():
             shutil.rmtree(resolve_jail_path(jail_dir, d))
-        return (_rm_action, "rm {0}".format(d))
-    return _create_rm_action
+        return (_rm_dir_action, "rm {0}".format(d))
+    return _create_rm_dir_action
 
 def create_cp_file_action(jail_dir):
     def _create_cp_file_action(f):
@@ -219,7 +221,7 @@ def create_make_path_action(jail_dir):
 def create_memory_file_action(memory_file, files):
     def _memory_file_action():
         save_managed_files(memory_file, files)
-    return _memory_file_action
+    return (_memory_file_action, "save memory file to {0}".format(memory_file))
 
 # -----------------------------------------------------------------------------
 
@@ -255,8 +257,8 @@ def main():
             msg = take_actions(actions)
         else:
             msg = fake_actions(actions)
-
-        module.exit_json(msg)
+        
+        module.exit_json(**msg)
 
     else:
         msg = destoy_jail(args['jail_dir'], MEMORY_FILE)
