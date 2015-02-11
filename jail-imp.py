@@ -135,7 +135,8 @@ def create_actions(jail_dir, files, dirs, managed_objects, jail_tree, memory_fil
     rm_dir_actions = map(create_rm_dir_action(jail_dir), reduntant_dirs)
     rm_actions = rm_file_actions + rm_dir_actions
 
-    missing_files = [x for x in itertools.ifilterfalse(is_file(jail_tree), files)]
+    _missing_files = [x for x in itertools.ifilterfalse(is_file(jail_tree), files)]
+    missing_files = remove_duplicates(_missing_files)
     missing_dirs = [x for x in itertools.ifilterfalse(is_dir(jail_tree), dirs)]
 
     _parent_dirs = map(get_parent_dir_path, missing_files + missing_dirs)
@@ -157,11 +158,16 @@ def is_file(jail_tree):
             if len(file_path) == 1:
                 if file_path[0] in tree and node == None:
                     return True
-                elif node == None:
-                    return False
                 else:
-                    return walker(node, file_paht[1:])
-        return walker(jail_tree, file_path.split("/")[1:])
+                    return False
+            elif node == None:
+                return False
+            else:
+                return walker(node, file_path[1:])
+        if jail_tree == {}:
+            return False
+        else:
+            return walker(jail_tree.values()[0] or {}, file_path.split("/")[1:])
     return _is_file
 
 def is_dir(jail_tree):
@@ -174,7 +180,10 @@ def is_dir(jail_tree):
                 return True
             else:
                 return walker(node, dir_path[1:])
-        return walker(jail_tree, dir_path.split("/")[1:])
+        if jail_tree == {}:
+            return False
+        else:
+            return walker(jail_tree.values()[0] or {}, dir_path.split("/")[1:])
     return _is_dir
 
 def diff(a, b):
