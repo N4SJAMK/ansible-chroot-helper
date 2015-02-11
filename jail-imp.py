@@ -147,7 +147,10 @@ def create_actions(jail_dir, files, dirs, managed_objects, jail_tree, memory_fil
     file_actions = map(create_cp_file_action(jail_dir), missing_files)
     dir_actions = map(create_cp_dir_action(jail_dir), missing_dirs)
 
-    memory_file_action = [create_memory_file_action(memory_file, missing_files + missing_dirs)]
+    if len(missing_dirs) != 0 or len(missing_files) != 0:
+        memory_file_action = [create_memory_file_action(memory_file, files + dirs)]
+    else:
+        memory_file_action = []
 
     return rm_actions + path_actions + file_actions + dir_actions + memory_file_action
 
