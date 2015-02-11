@@ -102,8 +102,16 @@ def destroy_jail(jail_dir, memory_file):
         msg['msg'].append("rm {0}".format(memory_file))
     return msg
 
-def take_action(action):
-    pass
+def take_actions(actions):
+    def _take_action(action):
+        action[0]()
+        return action[1]
+    return = reduce(create_msg, map(_take_action, actions), {changed = False})
+
+def fake_actions(actions):
+    def _fake_action(action):
+        return action[1]
+    return = reduce(create_msg, map(_take_action, actions), {changed = False})
 
 def create_msg(msgs, msg):
     return msgs + msg
@@ -227,7 +235,7 @@ def main():
         'commands'      : { 'default': None },
         'other_files'   : { 'default': None },
     }
-    module = AnsibleModule(argument_spec = arguments)
+    module = AnsibleModule(argument_spec = arguments, supports_check_mode = True)
     args = get_arguments(module)
 
     if args['state'] == 'present':
@@ -243,7 +251,12 @@ def main():
         actions = create_actions(args['jail_dir'], files, dirs, managed_objects, jail_tree, MEMORY_FILE)
 
         # Take actions
-        msg = reduce(create_msg, map(take_action, actions), {changed = False})
+        if module.check_mode:
+            msg = take_actions(actions)
+        else:
+            msg = fake_actions(actions)
+
+        module.exit_json(msg)
 
     else:
         msg = destoy_jail(args['jail_dir'], MEMORY_FILE)
