@@ -141,7 +141,15 @@ def create_actions(jail_dir, files, dirs, managed_objects, jail_tree, memory_fil
 
 def is_file(jail_tree):
     def _is_file(file_path):
-        pass
+        def walker(tree, file_path):
+            node = tree.get(file_path[0])
+            if len(file_path) == 1:
+                if file_path[0] in tree and node == None:
+                    return True
+                elif node == None:
+                    return False
+                else:
+                    return walker(node, file_paht[1:])
     return _is_file
 
 def is_dir(jail_tree):
