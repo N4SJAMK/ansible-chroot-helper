@@ -138,8 +138,9 @@ def create_actions(jail_dir, files, dirs, managed_objects, jail_tree, memory_fil
     missing_files = [x for x in itertools.ifilterfalse(is_file(jail_tree), files)]
     missing_dirs = [x for x in itertools.ifilterfalse(is_dir(jail_tree), dirs)]
 
-    parent_dirs = map(lambda x: x.split("/")[:-1], missing_files + missing_dirs)
-    missing_parent_dirs = itertools.ifilterfalse(is_dir, parent_dirs)
+    _parent_dirs = map(get_parent_dir_path, missing_files + missing_dirs)
+    parent_dirs = remove_duplicates(_parent_dirs)
+    missing_parent_dirs = itertools.ifilterfalse(is_dir(jail_tree), parent_dirs)
 
     path_actions = map(create_make_path_action(jail_dir), missing_parent_dirs)
     file_actions = map(create_cp_file_action(jail_dir), missing_files)
@@ -160,6 +161,7 @@ def is_file(jail_tree):
                     return False
                 else:
                     return walker(node, file_paht[1:])
+        return walker(jail_tree, file_path.split("/")[1:])
     return _is_file
 
 def is_dir(jail_tree):
@@ -172,7 +174,7 @@ def is_dir(jail_tree):
                 return True
             else:
                 return walker(node, dir_path[1:])
-        return walker(jail_tree, dir_path.split("/"))
+        return walker(jail_tree, dir_path.split("/")[1:])
     return _is_dir
 
 def diff(a, b):
@@ -180,6 +182,12 @@ def diff(a, b):
 
 def resolve_jail_path(jail_dir, file_path):
     return os.path.join(jail_dir, file_path[1:])
+
+def get_parent_dir_path(path):
+    return "/".join(path.split("/")[:-1])
+
+def remove_duplicates(l):
+    return list(set(l))
 
 def create_rm_file_action(jail_dir):
     def _create_rm_file_action(f):
@@ -253,7 +261,7 @@ def main():
         actions = create_actions(args['jail_dir'], files, dirs, managed_objects, jail_tree, MEMORY_FILE)
 
         # Take actions
-        if module.check_mode:
+        if not module.check_mode:
             msg = take_actions(actions)
         else:
             msg = fake_actions(actions)
