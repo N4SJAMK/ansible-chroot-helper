@@ -5,7 +5,9 @@
   tasks:
     - name: what is a jail
       jail:
-        jail_folder: /var/jail
+        jail_dir: /var/jail
         commands:
           - /bin/bash
-          - /bin/ls
+          - /bin/echo
+        dirs:
+          - /usr/lib/python2.7
