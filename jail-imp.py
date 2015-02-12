@@ -227,7 +227,7 @@ def create_cp_dir_action(jail_dir):
     def _create_cp_dir_action(d):
         dir_jail_path = resolve_jail_path(jail_dir, d)
         def _cp_dir_action():
-            shutil.copytree(path, jail_path)
+            shutil.copytree(d, dir_jail_path)
         return (_cp_dir_action, "cp {0} {1}".format(d, dir_jail_path))
     return _create_cp_dir_action
 
