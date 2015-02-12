@@ -127,7 +127,7 @@ def save_managed_files(memory_file, files):
 
 def create_actions(jail_dir, files, dirs, managed_objects, jail_tree, memory_file):
 
-    reduntant_objects = diff(files + dirs, managed_objects)
+    reduntant_objects = diff(managed_objects, files + dirs)
     reduntant_files = itertools.ifilter(is_file(jail_tree), reduntant_objects)
     reduntant_dirs = itertools.ifilter(is_dir(jail_tree), reduntant_objects)
 
@@ -147,7 +147,7 @@ def create_actions(jail_dir, files, dirs, managed_objects, jail_tree, memory_fil
     file_actions = map(create_cp_file_action(jail_dir), missing_files)
     dir_actions = map(create_cp_dir_action(jail_dir), missing_dirs)
 
-    if len(missing_dirs) != 0 or len(missing_files) != 0:
+    if len(missing_dirs) + len(missing_files) + len(reduntant_objects) != 0:
         memory_file_action = [create_memory_file_action(memory_file, files + dirs)]
     else:
         memory_file_action = []
