@@ -32,7 +32,7 @@ options:
         required: false
         default: null
     dirs:
-        descritipn:
+        description:
             - what other directories should be copied
         required: false
         default: null
@@ -269,7 +269,7 @@ def main():
         managed_objects = get_managed_objects(MEMORY_FILE)
         jail_tree = get_jail_tree(args['jail_dir'])
 
-        # Pure functional
+        # Pure function that returns unpure actions
         actions = create_actions(args['jail_dir'], files, dirs, managed_objects, jail_tree, MEMORY_FILE)
 
         # Take actions
