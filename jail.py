@@ -57,14 +57,18 @@ def get_arguments(module):
     return args
 
 def get_library_dependencies(command):
-    ldd_out = subprocess.check_output(['ldd', command])
-    deps = []
-    for line in ldd_out.splitlines():
-        match = re.match(r'\t.* => (\S*) \(0x|\t(\/\S*) \(0x', line)
-        if match:
-            if match.group(1) or match.group(2):
-                deps.append(match.group(1) or match.group(2))
-    return deps
+    try:
+        ldd_out = subprocess.check_output(['ldd', command])
+        deps = []
+        for line in ldd_out.splitlines():
+            match = re.match(r'\t.* => (\S*) \(0x|\t(\/\S*) \(0x', line)
+            if match:
+                if match.group(1) or match.group(2):
+                    deps.append(match.group(1) or match.group(2))
+        return (None, deps)
+
+    except subprocess.CalledProcessError as e:
+        return (str(e), [])
 
 def get_managed_objects(memory_file):
     if not os.path.isfile(memory_file):
@@ -243,6 +247,14 @@ def create_memory_file_action(memory_file, files):
         save_managed_files(memory_file, files)
     return (_memory_file_action, "save memory file to {0}".format(memory_file))
 
+def fold_tuples_sum((s_err, s_sum), (t_err, t_val)):
+    if t_err:
+        s_err = s_err or []
+        s_err.append(t_err)
+    if t_val:
+        s_sum = s_sum + t_val
+    return (s_err, s_sum)
+
 # -----------------------------------------------------------------------------
 
 def main():
@@ -263,7 +275,11 @@ def main():
     if args['state'] == 'present':
 
         # Collect data
-        libs = sum(map(get_library_dependencies, args['commands']), [])
+        err, libs = reduce(fold_tuples_sum,
+                map(get_library_dependencies, args['commands']), (None, []))
+        if err:
+            module.fail_json(msg = err)
+
         files = libs + args['commands'] + args['other_files']
         dirs = args['dirs']
         managed_objects = get_managed_objects(MEMORY_FILE)
